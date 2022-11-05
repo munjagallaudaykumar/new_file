@@ -1107,8 +1107,8 @@ def studentAttendanceDashboardPage(classTeacherRefLink):
         student_attendance={}
         
         total_students = StudentAttendanceRegister.objects.count()
-        # present_students = StudentAttendanceRegister.objects.filter(status__in=[1],attendenceStatus__in=[1]).count()
-        # absent_students = StudentAttendanceRegister.objects.filter(status__in=[1],attendenceStatus__in=[2]).count()
+        present_students = StudentAttendanceRegister.objects.filter(status__in=[1],attendenceStatus__in=[1]).count()
+        absent_students = StudentAttendanceRegister.objects.filter(status__in=[1],attendenceStatus__in=[2]).count()
         get_teacher_link = ClassTeacherRegister.objects.get(classTeacherRefLink=classTeacherRefLink)
         if True:
             student_attendance={
@@ -1152,7 +1152,7 @@ def addStudentPage(classTeacherRefLink):
             )
         add_student_info = add_student.save()
         if add_student_info:
-            # get_class_teacher = add_student_info.classTeacherRefLink
+            get_class_teacher = add_student_info.classTeacherRefLink
             return redirect(url_for('studentAttendanceDashboardPage',classTeacherRefLink=classTeacherRefLink))
 
     return render_template('attendance/add_student.html')
@@ -1179,10 +1179,10 @@ def studentAttendancePage(classTeacherRefLink):
 
     return render_template('attendance/student_attendance_view.html',student_list=student_list)
 
-# @app.route("/studentAttendancePost/<classTeacherRefLink>",methods=['POST','GET'])
-# def studentAttendancePostPage(classTeacherRefLink):
-#     get_student = StudentAttendanceRegister.objects.get
+ @app.route("/studentAttendancePost/<classTeacherRefLink>",methods=['POST','GET'])
+ def studentAttendancePostPage(classTeacherRefLink):
+    get_student = StudentAttendanceRegister.objects.get
 
 if __name__ == '__main__':
-    app.run(debug=True, port=4000)
-    # app.run(host='0.0.0.0',debug=True, port=4000)
+    #app.run(debug=True, port=4000)
+    app.run(host='0.0.0.0',debug=True, port=4000)
