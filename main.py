@@ -1184,5 +1184,5 @@ def studentAttendancePage(classTeacherRefLink):
   #  get_student = StudentAttendanceRegister.objects.get
 
 if __name__ == '__main__':
-    app.run(debug=True,)
+    app.run(debug=True)
     #app.run(host='0.0.0.0',debug=True, port=4000)
