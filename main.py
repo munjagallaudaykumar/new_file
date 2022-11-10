@@ -1179,9 +1179,9 @@ def studentAttendancePage(classTeacherRefLink):
 
     return render_template('attendance/student_attendance_view.html',student_list=student_list)
 
- @app.route("/studentAttendancePost/<classTeacherRefLink>",methods=['POST','GET'])
- def studentAttendancePostPage(classTeacherRefLink):
-    get_student = StudentAttendanceRegister.objects.get
+ #@app.route("/studentAttendancePost/<classTeacherRefLink>",methods=['POST','GET'])
+ #def studentAttendancePostPage(classTeacherRefLink):
+  #  get_student = StudentAttendanceRegister.objects.get
 
 if __name__ == '__main__':
     #app.run(debug=True, port=4000)
