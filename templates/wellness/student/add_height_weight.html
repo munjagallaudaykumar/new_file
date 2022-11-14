@@ -10,6 +10,18 @@
 <body style="background:linear-gradient(45deg, #47cebe, #ef4a82);">
   <div class="container">
     <div class="title">Add Height Weight & HB</div>
+
+    {% with messages=get_flashed_messages()%}
+    {% if messages %}
+    
+    {% for message in messages %}
+    <div class="" style="padding: 10px; color: green; border:3px;">
+        <!-- <span class="closebtn" onclick="this.parentElement.style.display='none';">&times;</span>  -->
+         {{message}}.
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
     
     
     <div class="content">
