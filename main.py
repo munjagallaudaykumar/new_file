@@ -205,13 +205,19 @@ def studentAmountPage(refLink):
     students_list=[]
     student_dict={}
     count=0
+    total_amount=0
     get_name = HouseMaster.objects.get(refLink=refLink)
     # print(get_name.houseMasterFirstName)
     houseMaster = get_name.houseMasterFirstName +" "+ get_name.houseMasterLastName
+    
     for s in get_students_details:
         if s.refLink==refLink:
             # houseMasterName = get_students_details = AmountBank.objects.get()
+            
             count=count+1
+
+            total_amount = total_amount+s.studentTotalAmount
+            # print(total_amount)
             student_dict={
                 "rno":count,
                 "studentName":s.studentName,
@@ -221,7 +227,7 @@ def studentAmountPage(refLink):
                 # "houseMasterName":houseMasterName
             }
             students_list.append(student_dict)
-    return render_template('students_view.html',students_info=students_list,refLink=refLink,houseMaster=houseMaster)
+    return render_template('students_view.html',students_info=students_list,refLink=refLink,houseMaster=houseMaster,total_amount=total_amount)
 
 @app.route("/studentRegister/<refLink>",methods=['POST','GET'])
 def studentRegPage(refLink):
@@ -247,6 +253,7 @@ def studentRegPage(refLink):
                 
                 )
             students_details_data= students_details.save()
+
             if students_details_data:
                 flash("Successfully Registered!!!")
                 return redirect(url_for('studentAmountPage',refLink=refLink))
@@ -673,7 +680,14 @@ def wellnessCenterDashboardPage(hsRefLink):
         sick_recovery_reports = StudentSickDiet.objects.filter(status__in=[1],sickDietStatus__in=[2]).count()
         get_hs_link = WellnessCenterRegistration.objects.get(hsRefLink=hsRefLink)
         get_students_count = StudentDetails.objects.count()
-        # print(get_hs_link.hsRefLink)
+        get_students_bmi_data = StudentBmi.objects.filter(status__in=[1]).count()
+        get_under_weight_data = StudentBmi.objects.filter(status__in=[1])
+        underWeight=0
+        if get_under_weight_data: 
+            for w in get_under_weight_data:
+                if w.bmiValue < 18:
+                    underWeight=underWeight+1
+                    print(underWeight)
         if True:
             reports_count_dict={
                 "sickStudentCount":sick_student_count,
@@ -681,7 +695,9 @@ def wellnessCenterDashboardPage(hsRefLink):
                 "sickDietReport":sick_diet_reports,
                 "sickDietObservation":sick_obers_reports,
                 "sickDietRecovery":sick_recovery_reports,
-                "totalStudentCount":get_students_count
+                "totalStudentCount":get_students_count,
+                "studentBmiCount":get_students_bmi_data,
+                "underWeight":underWeight
             }
         return render_template('wellness/health/hs_wellness_dashboard.html',reports=reports_count_dict)
 
@@ -692,8 +708,10 @@ def sickStudentsDetailsPage():
     count=0
     if request.method=='GET':
         get_sick_students = StudentDailySickRegistration.objects.all()
+
         if get_sick_students:
             for ss in get_sick_students:
+                print("-----------------")
                 count=count+1
                 sick_student_dict={
                     "slNo":count,
@@ -715,10 +733,13 @@ def sickStudentsDetailsPage():
 @app.route("/viewStudentSickPermissionLetter/<studentRefLink>",methods=['POST','GET'])
 def viewStudentSickPermissionLetterPage(studentRefLink):
     if request.method=='GET':
-        get_per_dict={}
+        get_letter_dict={}
         get_permission_letter = StudentDailySickRegistration.objects.get(studentRefLink=studentRefLink)
         if get_permission_letter:
-            return "success"
+            get_letter_dict={
+                "permissionLetter":get_permission_letter.permissionLetter
+            }
+        return render_template('wellness/student/student_sick_permission_letter.html',get_letter_dict=get_letter_dict)
 @app.route("/addStudentSickDiet/<studentRefLink>",methods=['POST','GET'])
 def addStudentSickDiet(studentRefLink):
     foodItem = request.form.get('foodItem')
@@ -844,10 +865,6 @@ def recoveryStatusPage(sickDietStudentRefLink):
     return redirect(url_for('sickDietOverallReportsPage'))
 
 
-@app.route("/classReports",methods=['POST','GET'])
-def classReportsPage():
-    return render_template('wellness/student/class_buttons.html')
-
 @app.route("/studentsDetails",methods=['POST','GET'])
 def studentsDetailsPage():
     student_list=[]
@@ -886,21 +903,42 @@ def studentAddBMIPage(className,rollNumber):
         hemoglobin = request.form.get('hemoglobin')
         age = request.form.get('age')
         month = request.form.get('month')
-        bmi_value = int(weight)/(int(height)/100)**2
-        print(bmi_value)
-        update_data = get_students.update(
-            height=height,
-            weight=weight,
-            hemoglobin=hemoglobin,
-            age = age,
+        bmiValue = int(weight)/(int(height)/100)**2
+        try:
+            check_month = StudentBmi.objects(month__iexact=month,rollNumber__in=[rollNumber],className__in=[className])
+            if check_month:
+                flash("Already checked in "+month)
+                return render_template('wellness/student/add_height_weight.html')
+        except:
+            pass
+        add_student_bmi = StudentBmi(
+            studentName=get_students.firstName+" "+get_students.lastName,
+            className=get_students.className,
+            rollNumber=get_students.rollNumber,
+            height=int(height),
+            weight=int(weight),
+            hemoglobin=int(hemoglobin),
+            age=age,
             month=month,
-            bmiValue=str(bmi_value),
-            studentRefLink=secrets.token_urlsafe(),
+            bmiValue=int(bmiValue),
+            studentId=ObjectId(get_students.id),
+            studentRefLink=str(get_students.id),
             createdOn=datetime.datetime.now(),
             status=1
             )
-        if update_data:
-
+        student_bmi=add_student_bmi.save()
+        if student_bmi:
+            update_data = get_students.update(
+                height=int(student_bmi.height),
+                weight=int(student_bmi.weight),
+                hemoglobin=int(student_bmi.hemoglobin),
+                age = student_bmi.age,
+                month=student_bmi.month,
+                bmiValue=int(student_bmi.bmiValue),
+                studentRefLink=secrets.token_urlsafe(),
+                createdOn=student_bmi.createdOn,
+                status=2
+                )
             flash("Successfully Added Height, Weight and Hemoglobin")
             return redirect(url_for('studentsClassDetailsPage',className=className))
     else:
@@ -928,32 +966,91 @@ def studentsClassDetailsPage(className):
                 student_list.append(student_dict)
     return render_template('wellness/student/class_student_details.html',student_list=student_list)
 
-# @app.route("/class6aAdd/<rollNumber>",methods=['POST','GET'])
-# def class6aAddPage(rollNumber):
-#     student_list=[]
-#     students_dict={}
-#     count=0
-#     get_students = StudentDetails.objects.get(rollNumber__in=[rollNumber],className__in=['6B'])
-#     print(get_students.rollNumber)
-#     if request.method=='POST':
-#         height = request.form.get('height')
-#         weight = request.form.get('weight')
-#         hemoglobin = request.form.get('hemoglobin')
-#         update_data = get_students.update(
-#             height=height,
-#             weight=weight,
-#             hemoglobin=hemoglobin,
-#             age = "12",
-#             studentRefLink=secrets.token_urlsafe(),
-#             createdOn=datetime.datetime.now(),
-#             status=1
-#             )
-#         if update_data:
-#             flash("Successfully Added Height, Weight and Hemoglobin")
-#             return redirect(url_for('class6AViewPage'))
-#     else:
-#         return render_template('wellness/student/add_height_weight.html')
+@app.route("/studentBMIReports",methods=['POST','GET'])
+def studentBMIReportsPage():
+    student_bmi_list=[]
+    student_bmi_dict={}
+    count=0
+    if request.method=='GET':
+        get_students_bmi = StudentBmi.objects(status__in=[1]).order_by('month')
+        if get_students_bmi:
+            for gsb in get_students_bmi:
+                count=count+1
+                student_bmi_dict={
+                    "slNo":count,
+                    "fullName":gsb.studentName,
+                    "className":gsb.className,
+                    "rollNumber":gsb.rollNumber,
+                    "height":gsb.height,
+                    "weight":gsb.weight,
+                    "hemoglobin":gsb.hemoglobin,
+                    "bmiValue":gsb.bmiValue,
+                    "month":gsb.month
+                }
+                student_bmi_list.append(student_bmi_dict)
+        elif not get_students_bmi:
+            # return"no data"
+            pass
+    return render_template('wellness/student/student_bmi_reports.html',student_bmi_list=student_bmi_list)
 
+@app.route("/studentBMIUnderWeightReports",methods=['POST','GET'])
+def studentBMIUnderWeightReportsPage():
+    student_weight_list=[]
+    student_weight_dict={}
+    count=0
+    if request.method=='GET':
+        get_students_bmi = StudentBmi.objects(status__in=[1])
+        if get_students_bmi:
+            for gsb in get_students_bmi:
+                if gsb.bmiValue >= 18 and gsb.bmiValue <=25:
+                    pass
+                elif gsb.bmiValue < 18:
+                    count=count+1
+                    student_weight_dict={
+                        "slNo":count,
+                        "fullName":gsb.studentName,
+                        "className":gsb.className,
+                        "rollNumber":gsb.rollNumber,
+                        "bmiValue":gsb.bmiValue,
+                        "month":gsb.month,
+                        "studentRefLink":gsb.studentRefLink
+                    }
+                    student_weight_list.append(student_weight_dict)
+                elif gsb.bmiValue >25:
+                    pass
+                else:
+                    flash("No Records")
+        elif not get_students_bmi:
+            # return"no data"
+            pass
+    return render_template('wellness/student/student_under_weight_bmi_reports.html',student_weight_list=student_weight_list)
+
+@app.route("/addSpecialDiet/<studentRefLink>",methods=['POST','GET'])
+def addStudentSpecialDiet(studentRefLink):
+    specialFoodItem=request.form.get('specialFoodItem')
+    specialFoodQuantity = request.form.get('specialFoodQuantity')
+    givenOn=datetime.datetime.now()
+    specialDietStatus = 1
+    if request.method=='POST':
+        try:
+            student_bmi = StudentBmi.objects(studentRefLink__iexact=studentRefLink)
+            if student_bmi:
+                flash("Already Added Special Diet")
+                return render_template("wellness/student/student_add_special_diet.html")
+        except Exception as e:
+            pass
+        get_students_bmi_data=StudentBmi.objects.get(studentRefLink__in=[studentRefLink])
+        if get_students_bmi_data:
+            update_special_diet=get_students_bmi_data.update(
+                specialFoodItem=specialFoodItem,
+                specialFoodQuantity=specialFoodQuantity,
+                givenOn=givenOn,
+                specialDietStatus=specialDietStatus
+                )
+            if update_special_diet:
+                flash("Special Diet Added")
+                return redirect(url_for('studentBMIUnderWeightReportsPage'))
+    return render_template('wellness/student/student_add_special_diet.html')
 
 @app.route("/schoolVisit",methods=['POST'])
 def schoolVisitPage():
@@ -981,22 +1078,27 @@ def schoolVisitPage():
             data_status["responseStatus"] = 201
             data_status["results"] = "success"
             return data_status
-@app.route("/schoolVisitReports",methods=['POST'])
+@app.route("/schoolVisitReports",methods=['POST','GET'])
 def schoolVisitReportsPage():
     if request.method=='GET':
         vistor_list = []
         vistor_dict = {}
         get_visitors = GateVisit.objects(status__in=[1])
+        visit_count = GateVisit.objects(status__in=[1]).count()
+        count=0
         if get_visitors:
             for vi in get_visitors:
+                count=count+1
                 vistor_dict = {
-                "firstname":vi.firstname,
-                "lastname":vi.lastname,
+                "sno":count,
+                "visitName":vi.firstname+" "+vi.lastname,
+                # "lastname":vi.lastname,
                 "reason":vi.reason,
                 "mobile":vi.mobile,
-                "visited":vi.date
+                "visited":vi.date.strftime("%d-%m-%Y %H:%M")
                 }
-            vistor_list.append(vistor_dict)
+                vistor_list.append(vistor_dict)
+        return render_template('gatevisit/gate_visit.html',vistor_list=vistor_list,visit_count=visit_count)
 
 @app.route("/classTeacherLogin",methods=['POST','GET'])
 def classTeacherLoginPage():
@@ -1073,8 +1175,6 @@ def classTeacherForgotPasswordPage():
     emailId = request.form.get("emailId")
     newPassword = request.form.get("newPassword")
     confirmPassword = request.form.get("confirmPassword")
-    
-
     if emailId and newPassword and confirmPassword and request.method=="POST":
         try:
             if newPassword==confirmPassword:
@@ -1086,8 +1186,7 @@ def classTeacherForgotPasswordPage():
                         )
                     if updated_password:
                         flash("Password Successfully Changed")
-                        return redirect(url_for('classTeacherLoginPage'))
-                
+                        return redirect(url_for('classTeacherLoginPage'))                
             else:
                 flash("Password Miss Matched")
                 return render_template('attendance/class_teacher_forgot_password.html')
@@ -1097,18 +1196,13 @@ def classTeacherForgotPasswordPage():
     
     return render_template('attendance/class_teacher_forgot_password.html')
 
-
-
-
-
 @app.route("/studentAttendanceDashboard/<classTeacherRefLink>",methods=['POST','GET'])
 def studentAttendanceDashboardPage(classTeacherRefLink):
     if request.method=='GET':
-        student_attendance={}
-        
+        student_attendance={}        
         total_students = StudentAttendanceRegister.objects.count()
-        present_students = StudentAttendanceRegister.objects.filter(status__in=[1],attendenceStatus__in=[1]).count()
-        absent_students = StudentAttendanceRegister.objects.filter(status__in=[1],attendenceStatus__in=[2]).count()
+        # present_students = StudentAttendanceRegister.objects.filter(status__in=[1],attendenceStatus__in=[1]).count()
+        # absent_students = StudentAttendanceRegister.objects.filter(status__in=[1],attendenceStatus__in=[2]).count()
         get_teacher_link = ClassTeacherRegister.objects.get(classTeacherRefLink=classTeacherRefLink)
         if True:
             student_attendance={
@@ -1130,7 +1224,7 @@ def addStudentPage(classTeacherRefLink):
     createdOn = datetime.datetime.now()
     status = 1
     attendanceStatus = 0
-
+    
     if request.method == 'POST':
         try:
             queryset = StudentAttendanceRegister.objects(rollNumber__iexact=rollNumber)
@@ -1152,12 +1246,14 @@ def addStudentPage(classTeacherRefLink):
             )
         add_student_info = add_student.save()
         if add_student_info:
-            get_class_teacher = add_student_info.classTeacherRefLink
+            # get_class_teacher = add_student_info.classTeacherRefLink
             return redirect(url_for('studentAttendanceDashboardPage',classTeacherRefLink=classTeacherRefLink))
 
     return render_template('attendance/add_student.html')
 @app.route("/studentAttendance/<classTeacherRefLink>",methods=['POST','GET'])
 def studentAttendancePage(classTeacherRefLink):
+    selectDate = request.form.get('selectDate')
+    print(selectDate)
     student_list=[]
     student_dict={}
     get_students=StudentAttendanceRegister.objects(status__in=[1]).order_by('rollNumber')
@@ -1179,10 +1275,33 @@ def studentAttendancePage(classTeacherRefLink):
 
     return render_template('attendance/student_attendance_view.html',student_list=student_list)
 
- #@app.route("/studentAttendancePost/<classTeacherRefLink>",methods=['POST','GET'])
- #def studentAttendancePostPage(classTeacherRefLink):
-  #  get_student = StudentAttendanceRegister.objects.get
+@app.route("/studentAttendancePost/<studentAttendanceLink>",methods=['POST','GET'])
+def studentAttendancePostPage(studentAttendanceLink):
+    
+    get_students = StudentAttendanceRegister.objects.get(studentAttendanceLink__in=[studentAttendanceLink],status__in=[1])
+    attendanceStatus=1
+    attendenceDate=datetime.datetime.now()
+    get_class_teacher=StudentAttendanceRegister.objects()
+    if get_class_teacher:
+        for gct in get_class_teacher:
+            classTeacherRefLink=gct.classTeacherRefLink
+
+    update_status=get_students.update(attendanceStatus=attendanceStatus,attendenceDate=attendenceDate)    
+    if get_students:
+        student_daily=StudentsDailyAttendance(
+            studentName=get_students.firstName+" "+get_students.lastName,
+            className = get_students.className,
+            rollNumber= get_students.rollNumber,
+            studentAttendanceLink=get_students.studentAttendanceLink,
+            classTeacherRefLink=get_students.classTeacherRefLink,
+            attendenceDate=datetime.datetime.now(),
+            attendanceStatus=1,
+            status=1,
+            createdOn=datetime.datetime.now())
+        student_daily_atte=student_daily.save()
+    return redirect(url_for('studentAttendancePage',classTeacherRefLink=classTeacherRefLink))
+    
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0',debug=True)
-    #app.run(host='0.0.0.0',debug=True, port=4000)
+    app.run(debug=True, port=4000)
+    # app.run(host='0.0.0.0',debug=True, port=4000)
